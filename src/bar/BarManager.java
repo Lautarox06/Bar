@@ -1,3 +1,5 @@
+package bar;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -10,6 +12,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 	Logica del sistema de gestion del bar.
+ */
 public class BarManager {
     private Map<String, Articulo> articulos;
     private Map<Integer, Mesa> mesas;
@@ -21,7 +26,7 @@ public class BarManager {
         this.mesas = new HashMap<>();
         this.sistemaTime = LocalTime.now().withNano(0);
         cargarArticulos("productos.csv"); // Asegúrate de que este archivo exista y tenga el formato correcto
-        inicializarMesas(5);
+        inicializarMesas(5); // Cantidad de mesas que deseamos crear
     }
 
     // MODIFICADO: Cargar artículos ahora procesa la 8ª columna de especificaciones.
@@ -83,13 +88,15 @@ public class BarManager {
         return isHappyHourActive;
     }
 
+    /**
+     * Activa/Desactiva la hora feliz.
+     */
     public void toggleHappyHour() {
         isHappyHourActive = !isHappyHourActive;
     }
 
     /**
-     * Nuevo método para agregar un consumo a una mesa.
-     * Ahora recibe el objeto Articulo completo y el mapa de opciones seleccionadas.
+     * Metodo para agregar un consumo a una mesa.
      */
     public boolean agregarConsumoAMesa(int numeroMesa, Articulo articulo, int cantidad, double precioUnitarioBase, Map<Especificacion, Integer> opcionesSeleccionadas) {
         Mesa mesa = mesas.get(numeroMesa);
@@ -102,10 +109,10 @@ public class BarManager {
     }
 
     /**
-     * Remueve un consumo de una mesa específica por su índice.
+     * Remueve un consumo de una mesa especifica por su indice.
      * @param numeroMesa El número de la mesa.
      * @param indiceConsumo El índice del consumo a remover (basado en la tabla/lista interna de consumos de la mesa).
-     * @return true si se removió exitosamente, false en caso contrario.
+     * @return true si se removio exitosamente, false en caso contrario.
      */
     public boolean removerConsumoDeMesa(int numeroMesa, int indiceConsumo) {
         Mesa mesa = mesas.get(numeroMesa);
@@ -117,9 +124,9 @@ public class BarManager {
 
 
     /**
-     * Elimina un artículo del catálogo.
+     * Elimina un articulo del catalogo.
      * @param codigo El código del artículo a eliminar.
-     * @return 0 si se eliminó con éxito, 1 si el artículo no existe, 2 si el artículo está en uso en una mesa abierta.
+     * @return 0 si se elimino con éxito, 1 si el articulo no existe, 2 si el articulo esta en uso en una mesa abierta.
      */
     public int eliminarArticulo(String codigo) {
         if (!articulos.containsKey(codigo)) {
@@ -142,10 +149,10 @@ public class BarManager {
     }
 
     /**
-     * NUEVO: Modifica un artículo existente en el catálogo.
-     * El Articulo pasado debe tener el código de un artículo existente.
+     * Modifica un artículo existente en el catalogo.
+     * El Articulo pasado debe tener el codigo de un articulo existente.
      * @param articuloModificado El objeto Articulo con los datos actualizados.
-     * @return true si el artículo fue modificado, false si no se encontró el artículo.
+     * @return true si el articulo fue modificado, false si no se encontro el articulo.
      */
     public boolean modificarArticulo(Articulo articuloModificado) {
         if (articulos.containsKey(articuloModificado.getCodigo())) {
@@ -155,14 +162,57 @@ public class BarManager {
         return false;
     }
 
-    // Getters y otros métodos existentes
+    /**
+     * Funcion para abrir una mesa.
+     * @param numeroMesa El numero de la mesa que se desea abrir.
+     * @param horaApertura Hora que se registrara que se abrio la mesa.
+     * @return
+     */
     public boolean abrirMesa(int numeroMesa, int horaApertura) { Mesa mesa = mesas.get(numeroMesa); if (mesa != null && !mesa.estaOcupada()) { mesa.abrir(horaApertura); return true; } return false; }
+
+    /**
+     * Funcion para cerrar una mesa.
+     * @param numeroMesa El numero de la mesa que se desea cerrar.
+     * @return
+     */
     public String cerrarMesa(int numeroMesa) { Mesa mesa = mesas.get(numeroMesa); if (mesa != null && mesa.estaOcupada()) { return mesa.cerrar(); } return null; }
+
+    /**
+     * Funcion para agregar un articulo nuevo.
+     * @param articulo
+     * @return
+     */
     public boolean addArticulo(Articulo articulo) { if (articulos.containsKey(articulo.getCodigo())) { return false; } articulos.put(articulo.getCodigo(), articulo); return true; }
     public Mesa getMesa(int numeroMesa) { return mesas.get(numeroMesa); }
+
+    /**
+     * Devuelve una lista de todas las mesas que existen.
+     * @return
+     */
     public List<Mesa> getTodasLasMesas() { List<Mesa> sortedMesas = new ArrayList<>(mesas.values()); Collections.sort(sortedMesas, Comparator.comparingInt(Mesa::getNumero)); return Collections.unmodifiableList(sortedMesas); }
+
+    /**
+     * Devuelve una lista de los numeros de mesas libres.
+     * @return
+     */
     public List<Integer> getNumerosMesasLibres() { return mesas.values().stream().filter(m -> !m.estaOcupada()).map(Mesa::getNumero).sorted().collect(Collectors.toList()); }
+
+    /**
+     * Devuelve una lista de los numeros de mesas ocupadas.
+     * @return
+     */
     public List<Integer> getNumerosMesasOcupadas() { return mesas.values().stream().filter(Mesa::estaOcupada).map(Mesa::getNumero).sorted().collect(Collectors.toList()); }
+
+    /**
+     * Devuelve una lista de todos los articulos creados.
+     * @return
+     */
     public Map<String, Articulo> getTodosLosArticulos() { return Collections.unmodifiableMap(articulos); }
+
+    /**
+     * Devuelve un Articulo.
+     * @param codigo Segun el codigo diferencia los articulos.
+     * @return
+     */
     public Articulo getArticulo(String codigo) { return articulos.get(codigo); }
 }

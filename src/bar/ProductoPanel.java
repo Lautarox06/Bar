@@ -1,3 +1,5 @@
+package bar;
+
 import javax.swing.*;
 import javax.swing.border.Border;
 import java.awt.*;
@@ -6,11 +8,11 @@ import java.io.File;
 import java.net.URL;
 
 /**
- * Componente visual que representa un único producto del bar.
+ * Componente visual que representa un unico producto del bar.
  */
 public class ProductoPanel extends JPanel {
     private Articulo articulo;
-    private JLabel priceLabel; // NUEVO: La etiqueta de precio ahora es un campo de la clase
+    private JLabel priceLabel;
     private static final int IMAGE_SIZE = 100;
 
     public ProductoPanel(Articulo articulo) {
@@ -47,9 +49,9 @@ public class ProductoPanel extends JPanel {
     }
 
     /**
-     * NUEVO: Actualiza el precio mostrado en el panel.
+     * Actualiza el precio mostrado en el panel.
      * @param currentHour La hora actual para determinar el precio (diurno/nocturno).
-     * @param isHappyHour true si el Happy Hour está activo.
+     * @param isHappyHour true si la Hora feliz está activo.
      */
     public void updatePrice(int currentHour, boolean isHappyHour) {
         double price;
@@ -105,6 +107,10 @@ public class ProductoPanel extends JPanel {
         );
     }
 
+    /**
+     * Devuelve todos los valores de un Articulo
+     * @return
+     */
     public Articulo getArticulo() {
         return articulo;
     }

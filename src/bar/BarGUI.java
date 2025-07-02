@@ -1,3 +1,5 @@
+package bar;
+
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
@@ -13,14 +15,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class BarGUI extends JFrame {
+/**
+ * Interfaz grafica principal del sistema de gestion de bar.
+ * Permite visualizar y operar sobre mesas, productos y consumos.
+ * Soporta funciones como abrir/cerrar mesas, añadir o modificar articulos,
+ * gestionar consumos, y activar/desactivar Happy Hour.
+ *
+ * Usa Swing para construir la interfaz visual y se apoya en BarManager
+ * para la logica de negocio.
+ */
+public class  BarGUI extends JFrame {
     private BarManager barManager;
 
     // Componentes visuales
     private JPanel mesaSelectionPanel;
-    private JLayeredPane productDisplayLayeredPane; // Nuevo: Para el efecto de transparencia
+    private JLayeredPane productDisplayLayeredPane; // Para el efecto de transparencia
     private JPanel productDisplayPanel;
-    private JPanel overlayPanel; // Nuevo: Panel para el efecto de transparencia
+    private JPanel overlayPanel; // Panel para el efecto de transparencia
     private JTextArea statusArea;
     private JButton mainMesaActionButton, happyHourToggleBtn, addProductoBtn, setHoraBtn, eliminarProductoBtn, removerConsumoBtn, modificarProductoBtn; // AGREGADO: modificarProductoBtn
     private JLabel sistemaHoraLabel;
@@ -34,7 +45,7 @@ public class BarGUI extends JFrame {
     private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     /**
-     * Constructor principal de la interfaz gráfica.
+     * Constructor principal de la interfaz grafica.
      */
     public BarGUI() {
         barManager = new BarManager();
@@ -97,7 +108,7 @@ public class BarGUI extends JFrame {
     }
 
     /**
-     * Configura el panel superior con el título y los relojes.
+     * Configura el panel superior con el titulo y los relojes.
      */
     private void setupHeaderPanel() {
         JPanel headerPanel = new JPanel(new BorderLayout());
@@ -488,6 +499,9 @@ public class BarGUI extends JFrame {
         dialog.setVisible(true);
     }
 
+    /**
+     * Boton para eliminar un consumo registrado en la mesa activa.
+     */
     private void removerConsumo() {
         if (mesaActiva == null || !mesaActiva.estaOcupada()) {
             JOptionPane.showMessageDialog(this, "Debe seleccionar una mesa activa.", "Error", JOptionPane.WARNING_MESSAGE);
@@ -512,6 +526,9 @@ public class BarGUI extends JFrame {
         }
     }
 
+    /**
+     * Elimina un producto seleccionado del catálogo.
+     */
     private void eliminarProducto() {
         Map<String, Articulo> articulosMap = barManager.getTodosLosArticulos();
         if (articulosMap.isEmpty()) {
@@ -552,6 +569,9 @@ public class BarGUI extends JFrame {
         }
     }
 
+    /**
+     * 	Permite modificar un producto existente.
+     */
     private void modificarProducto() {
         Map<String, Articulo> articulosMap = barManager.getTodosLosArticulos();
         if (articulosMap.isEmpty()) {
@@ -646,7 +666,9 @@ public class BarGUI extends JFrame {
         }
     }
 
-
+    /**
+     *  Boton para activar/desactivar la Hora Feliz
+     */
     private void toggleHappyHour() {
         barManager.toggleHappyHour();
         if (barManager.isHappyHourActive()) {
@@ -661,6 +683,9 @@ public class BarGUI extends JFrame {
         updateAllProductPrices();
     }
 
+    /**
+     * Boton para abrir una mesa seleccionada
+     */
     private void abrirMesa() {
         if (mesaActiva == null) {
             JOptionPane.showMessageDialog(this, "Por favor, seleccione una mesa de la lista.", "Ninguna mesa seleccionada", JOptionPane.WARNING_MESSAGE);
@@ -681,6 +706,9 @@ public class BarGUI extends JFrame {
         }
     }
 
+    /**
+     *  Funcion para cerrar una mesa, lo que genera su ticket con sus respectivos consumos.
+     */
     private void cerrarMesa() {
         if (mesaActiva == null || !mesaActiva.estaOcupada()) return;
 
@@ -697,6 +725,9 @@ public class BarGUI extends JFrame {
         }
     }
 
+    /**
+     * Abre un formulario para agregar un nuevo producto al catálogo.
+     */
     private void addNuevoProducto() {
         JTextField codigoField = new JTextField(10);
         JTextField descripcionField = new JTextField(20);
@@ -753,12 +784,20 @@ public class BarGUI extends JFrame {
         }
     }
 
+    /**
+     * Agrega un mensaje al área de estado con marca de hora.
+     * @param message Mensaje
+     */
     private void updateStatus(String message) {
         statusArea.append("\n[" + LocalTime.now().format(timeFormatter) + "] " + message);
         statusArea.setCaretPosition(statusArea.getDocument().getLength());
         updateMesaButtons(); // Siempre actualizar los botones de mesa al cambiar el estado
     }
 
+    /**
+     * Punto de entrada principal de la aplicacion. Inicia la GUI.
+     * @param args
+     */
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new BarGUI());
     }

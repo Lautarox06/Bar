@@ -1,7 +1,12 @@
+package bar;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Todas las funciones relacionadas con el cierre/apertura de mesas y sumar consumos a las mismas.
+ */
 public class Mesa {
     int numero;
     Integer horaApertura;
@@ -14,7 +19,7 @@ public class Mesa {
     }
 
     /**
-     * NUEVO: Remueve un consumo de la lista usando su índice.
+     * Remueve un consumo de la lista usando su índice.
      * @param indice El índice del consumo a remover.
      * @return true si se removió exitosamente, false en caso contrario.
      */
@@ -26,7 +31,10 @@ public class Mesa {
         return false;
     }
 
-    // MODIFICADO: El método cerrar() ahora imprime el detalle del consumo.
+    /**
+     * Funcion para cerrar una mesa que este ocupada, devolviendo el ticket de los consumos realizados.
+     * @return
+     */
     public String cerrar() {
         StringBuilder ticket = new StringBuilder();
         double total = 0;
@@ -57,11 +65,39 @@ public class Mesa {
         return ticket.toString();
     }
 
-    // El resto de los métodos permanecen igual...
+    /**
+     * Devuelve el numero de mesa actualmente seleccionada.
+     * @return
+     */
     public int getNumero() { return numero; }
+
+    /**
+     * Devuelve a la hora que se abrio una mesa.
+     * @return
+     */
     public Integer getHoraApertura() { return horaApertura; }
+
+    /**
+     * Informa si la mesa esta ocupada/desocupada
+     * @return
+     */
     public boolean estaOcupada() { return horaApertura != null; }
+
+    /**
+     * Si la mesa seleccionada esta desocupada, la abre.
+     * @param hora Hora de apertura
+     */
     public void abrir(int hora) { if (!estaOcupada()) { this.horaApertura = hora; this.consumos.clear(); } }
+
+    /**
+     * Se le suman los consumos que se realizan en la mesa.
+     * @param consumo
+     */
     public void agregarConsumo(Consumo consumo) { if (estaOcupada()) { this.consumos.add(consumo); } }
+
+    /**
+     * Devuelve todos los consumos realizados en la mesa.
+     * @return
+     */
     public List<Consumo> getConsumos() { return Collections.unmodifiableList(consumos); }
 }

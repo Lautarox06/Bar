@@ -1,13 +1,24 @@
+package bar;
+
 import java.util.Map;
 import java.text.DecimalFormat;
 
+/**
+ * Todas las funciones relacionadas a obtener informacion de un consumo.
+ */
 public class Consumo {
     Articulo articulo; // Ahora almacena el objeto Articulo directamente
     int cantidad;
     double precioUnitarioBase; // El precio del artículo sin extras
     Map<Especificacion, Integer> opcionesSeleccionadas;
 
-    // MODIFICADO: El primer parámetro ahora es un objeto Articulo
+    /**
+     * Devuelve toda la informacion de un consumo en base a un articulo.
+     * @param articulo
+     * @param cantidad
+     * @param precioUnitarioBase
+     * @param opcionesSeleccionadas
+     */
     public Consumo(Articulo articulo, int cantidad, double precioUnitarioBase, Map<Especificacion, Integer> opcionesSeleccionadas) {
         this.articulo = articulo;
         this.cantidad = cantidad;
@@ -15,6 +26,10 @@ public class Consumo {
         this.opcionesSeleccionadas = opcionesSeleccionadas;
     }
 
+    /**
+     * En base a las especificaciones agregadas al consumo, devuelve su costo final.
+     * @return
+     */
     public double getCostoDeOpciones() {
         double costoOpciones = 0;
         if (opcionesSeleccionadas != null) {
@@ -25,14 +40,26 @@ public class Consumo {
         return costoOpciones;
     }
 
+    /**
+     * Devuelve el precio del articulo individual junto a los agregados.
+     * @return
+     */
     public double getPrecioUnitarioFinal() {
         return precioUnitarioBase + getCostoDeOpciones();
     }
 
+    /**
+     * Devuelve el precio multiplicado la cantidad solicitada.
+     * @return
+     */
     public double getSubtotal() {
         return getPrecioUnitarioFinal() * cantidad;
     }
 
+    /**
+     * Devuelve todos los detalles del consumo.
+     * @return
+     */
     public String getDetalle() {
         if (opcionesSeleccionadas == null || opcionesSeleccionadas.isEmpty()) {
             return "";
@@ -56,14 +83,29 @@ public class Consumo {
         return sb.toString();
     }
 
-    // Getters
+    /**
+     * Devuelve el articulo solicitado por el consumo
+     * @return
+     */
     public Articulo getArticulo() { return articulo; }
+
+    /**
+     * Deuelve la cantidad solicitada
+     * @return
+     */
     public int getCantidad() { return cantidad; }
+
+    /**
+     * Deuelve las opciones seleccionadas.
+     * @return
+     */
     public Map<Especificacion, Integer> getOpcionesSeleccionadas() { return opcionesSeleccionadas; }
+
+    /**
+     * Devuelve la hora a la que se realizo el Consumo.
+     * @return
+     */
     public int getHoraConsumo() {
-        // En un sistema real, la hora se debería pasar al crear el consumo
-        // o generarse en el momento de agregarlo a la mesa.
-        // Por ahora, asumimos que se gestiona la hora en BarManager.
         return 0; // O el valor que corresponda
     }
 }
