@@ -1,8 +1,13 @@
 package bar;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -58,6 +63,36 @@ public class BarManager {
         }
     }
 
+    /**
+     * Guarda todos los productos en el archivo CSV.
+     * @param filename Nombre del archivo.
+     */
+    private void guardarProductos(String filename) {
+        // Configurar formato numérico con punto decimal
+        DecimalFormat df = new DecimalFormat("0.00", new DecimalFormatSymbols(Locale.US));
+        df.setGroupingUsed(false);
+
+        try (PrintWriter pw = new PrintWriter(new FileWriter(filename))) {
+            pw.println("codigo,nombre,precio_diurno,precio_nocturno,precio_happy_hour,imagen,especificaciones");
+            for (Articulo art : articulos.values()) {
+                String especificacionesStr = art.getEspecificaciones().stream()
+                        .map(spec -> spec.getNombre() + ":" + spec.getTipo().name() + ":" + df.format(spec.getPrecioPorUnidad()))
+                        .collect(Collectors.joining(";"));
+
+                pw.println(String.format("%s,%s,%s,%s,%s,%s,%s",
+                        art.getCodigo(),
+                        art.getDescripcion(),
+                        df.format(art.getPrecioDiurno()),
+                        df.format(art.getPrecioNocturno()),
+                        df.format(art.getPrecioHappyHour()),
+                        art.getImagenPath(),
+                        especificacionesStr));
+            }
+        } catch (IOException e) {
+            System.err.println("Error al guardar productos: " + e.getMessage());
+        }
+    }
+
     private void inicializarMesas(int cantidad) {
         for (int i = 1; i <= cantidad; i++) {
             mesas.put(i, new Mesa(i));
@@ -101,7 +136,8 @@ public class BarManager {
     public boolean agregarConsumoAMesa(int numeroMesa, Articulo articulo, int cantidad, double precioUnitarioBase, Map<Especificacion, Integer> opcionesSeleccionadas) {
         Mesa mesa = mesas.get(numeroMesa);
         if (mesa != null && mesa.estaOcupada()) {
-            Consumo consumo = new Consumo(articulo, cantidad, precioUnitarioBase, opcionesSeleccionadas);
+            // Se pasa la hora actual del sistema al crear el consumo
+            Consumo consumo = new Consumo(articulo, cantidad, precioUnitarioBase, opcionesSeleccionadas, sistemaTime);
             mesa.agregarConsumo(consumo);
             return true;
         }
@@ -145,6 +181,7 @@ public class BarManager {
         }
 
         articulos.remove(codigo);
+        guardarProductos("productos.csv"); // Guardar cambios en el CSV
         return 0; // Éxito
     }
 
@@ -157,6 +194,7 @@ public class BarManager {
     public boolean modificarArticulo(Articulo articuloModificado) {
         if (articulos.containsKey(articuloModificado.getCodigo())) {
             articulos.put(articuloModificado.getCodigo(), articuloModificado);
+            guardarProductos("productos.csv"); // Guardar cambios en el CSV
             return true;
         }
         return false;
@@ -165,10 +203,17 @@ public class BarManager {
     /**
      * Funcion para abrir una mesa.
      * @param numeroMesa El numero de la mesa que se desea abrir.
-     * @param horaApertura Hora que se registrara que se abrio la mesa.
+     * @param horaApertura Hora (con minutos) que se registrara que se abrio la mesa.
      * @return
      */
-    public boolean abrirMesa(int numeroMesa, int horaApertura) { Mesa mesa = mesas.get(numeroMesa); if (mesa != null && !mesa.estaOcupada()) { mesa.abrir(horaApertura); return true; } return false; }
+    public boolean abrirMesa(int numeroMesa, LocalTime horaApertura) {
+        Mesa mesa = mesas.get(numeroMesa);
+        if (mesa != null && !mesa.estaOcupada()) {
+            mesa.abrir(horaApertura);
+            return true;
+        }
+        return false;
+    }
 
     /**
      * Funcion para cerrar una mesa.
@@ -182,7 +227,14 @@ public class BarManager {
      * @param articulo
      * @return
      */
-    public boolean addArticulo(Articulo articulo) { if (articulos.containsKey(articulo.getCodigo())) { return false; } articulos.put(articulo.getCodigo(), articulo); return true; }
+    public boolean addArticulo(Articulo articulo) {
+        if (articulos.containsKey(articulo.getCodigo())) {
+            return false;
+        }
+        articulos.put(articulo.getCodigo(), articulo);
+        guardarProductos("productos.csv"); // Guardar cambios en el CSV
+        return true;
+    }
     public Mesa getMesa(int numeroMesa) { return mesas.get(numeroMesa); }
 
     /**

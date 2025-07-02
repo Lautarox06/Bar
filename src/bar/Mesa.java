@@ -1,5 +1,6 @@
 package bar;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -9,12 +10,11 @@ import java.util.List;
  */
 public class Mesa {
     int numero;
-    Integer horaApertura;
+    LocalTime horaApertura; // Cambiado a LocalTime para almacenar hora y minutos
     ArrayList<Consumo> consumos;
 
     public Mesa(int numero) {
         this.numero = numero;
-        this.horaApertura = null;
         this.consumos = new ArrayList<>();
     }
 
@@ -75,7 +75,7 @@ public class Mesa {
      * Devuelve a la hora que se abrio una mesa.
      * @return
      */
-    public Integer getHoraApertura() { return horaApertura; }
+    public LocalTime getHoraApertura() { return horaApertura; }
 
     /**
      * Informa si la mesa esta ocupada/desocupada
@@ -85,9 +85,14 @@ public class Mesa {
 
     /**
      * Si la mesa seleccionada esta desocupada, la abre.
-     * @param hora Hora de apertura
+     * @param hora Hora de apertura (con minutos)
      */
-    public void abrir(int hora) { if (!estaOcupada()) { this.horaApertura = hora; this.consumos.clear(); } }
+    public void abrir(LocalTime hora) {
+        if (!estaOcupada()) {
+            this.horaApertura = hora;
+            this.consumos.clear();
+        }
+    }
 
     /**
      * Se le suman los consumos que se realizan en la mesa.

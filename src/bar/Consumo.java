@@ -1,7 +1,8 @@
 package bar;
 
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
-import java.text.DecimalFormat;
 
 /**
  * Todas las funciones relacionadas a obtener informacion de un consumo.
@@ -11,6 +12,7 @@ public class Consumo {
     int cantidad;
     double precioUnitarioBase; // El precio del artículo sin extras
     Map<Especificacion, Integer> opcionesSeleccionadas;
+    private LocalTime horaConsumo; // Nuevo campo para almacenar la hora exacta del consumo
 
     /**
      * Devuelve toda la informacion de un consumo en base a un articulo.
@@ -18,12 +20,14 @@ public class Consumo {
      * @param cantidad
      * @param precioUnitarioBase
      * @param opcionesSeleccionadas
+     * @param horaConsumo Hora exacta en que se registra el consumo
      */
-    public Consumo(Articulo articulo, int cantidad, double precioUnitarioBase, Map<Especificacion, Integer> opcionesSeleccionadas) {
+    public Consumo(Articulo articulo, int cantidad, double precioUnitarioBase, Map<Especificacion, Integer> opcionesSeleccionadas, LocalTime horaConsumo) {
         this.articulo = articulo;
         this.cantidad = cantidad;
         this.precioUnitarioBase = precioUnitarioBase;
         this.opcionesSeleccionadas = opcionesSeleccionadas;
+        this.horaConsumo = horaConsumo;
     }
 
     /**
@@ -105,7 +109,15 @@ public class Consumo {
      * Devuelve la hora a la que se realizo el Consumo.
      * @return
      */
-    public int getHoraConsumo() {
-        return 0; // O el valor que corresponda
+    public LocalTime getHoraConsumo() {
+        return horaConsumo;
+    }
+
+    /**
+     * Devuelve la hora formateada como cadena (HH:mm)
+     * @return
+     */
+    public String getHoraConsumoFormateada() {
+        return horaConsumo.format(DateTimeFormatter.ofPattern("HH:mm"));
     }
 }

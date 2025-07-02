@@ -282,7 +282,9 @@ public class  BarGUI extends JFrame {
         // Actualizar el estado del label de la mesa activa
         if (mesa != null) {
             if (mesa.estaOcupada()) {
-                activeMesaLabel.setText("Mesa " + mesa.getNumero() + " - Abierta desde " + mesa.horaApertura + ":00");
+                // Formatear la hora de apertura con minutos
+                String horaAperturaFormateada = mesa.getHoraApertura().format(DateTimeFormatter.ofPattern("HH:mm"));
+                activeMesaLabel.setText("Mesa " + mesa.getNumero() + " - Abierta desde " + horaAperturaFormateada);
                 activeMesaLabel.setForeground(new Color(200, 0, 0));
                 // Habilitar panel de productos y ocultar overlay
                 overlayPanel.setVisible(false);
@@ -313,7 +315,7 @@ public class  BarGUI extends JFrame {
                         c.getArticulo().getDescripcion(),
                         c.getDetalle(),
                         c.getCantidad(),
-                        String.format("%02d:00", c.getHoraConsumo()),
+                        c.getHoraConsumoFormateada(), // Usa el método formateado
                         String.format("$%.2f", c.getSubtotal())
                 });
             }
@@ -696,10 +698,10 @@ public class  BarGUI extends JFrame {
             return;
         }
 
-        // Abre la mesa con la hora actual del sistema sin preguntar
-        int hora = barManager.getSistemaHora();
-        if (barManager.abrirMesa(mesaActiva.getNumero(), hora)) {
-            updateStatus("Mesa " + mesaActiva.getNumero() + " abierta a las " + hora + ":00");
+        // Abre la mesa con la hora actual del sistema (con minutos)
+        LocalTime horaActual = barManager.getSistemaTime();
+        if (barManager.abrirMesa(mesaActiva.getNumero(), horaActual)) {
+            updateStatus("Mesa " + mesaActiva.getNumero() + " abierta a las " + horaActual.format(DateTimeFormatter.ofPattern("HH:mm")));
             selectMesa(mesaActiva); // Refresca el estado visual
         } else {
             JOptionPane.showMessageDialog(this, "No se pudo abrir la mesa.", "Error", JOptionPane.ERROR_MESSAGE);

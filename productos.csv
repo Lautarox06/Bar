@@ -1,4 +1,4 @@
-codigo,nombre,categoria,precio_diurno,precio_nocturno,precio_happy_hour,imagen,especificaciones
-H001,Hamburguesa Clasica,150.00,180.00,120.00,burguer.png,Extra Queso:SI_NO:50.00;Extra Tomate:SI_NO:30.00;Cantidad de Aderezo:CANTIDAD:20.00
-C001,Cerveza Rubia,100.00,120.00,80.00,cerveza.png,Tamaño Grande:SI_NO:40.00
-P001,Papas Fritas,80.00,90.00,70.00,papas.png,
+codigo,nombre,precio_diurno,precio_nocturno,precio_happy_hour,imagen,especificaciones
+A43,Hamburguesa Clasica,300.00,200.00,400.00,images/burger.png,Extra Queso:SI_NO:50.00;Extra Tomate:SI_NO:30.00;Cantidad de Aderezo:CANTIDAD:20.00
+C001,Cerveza Rubia,100.00,600.00,120.00,images/cerveza.png,
+P001,Papas Fritas,80.00,0.00,90.00,images/papas.png,
