@@ -2,138 +2,213 @@ import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.text.DecimalFormat;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class BarGUI extends JFrame {
     private BarManager barManager;
 
+    // Componentes visuales
     private JPanel mesaSelectionPanel;
+    private JLayeredPane productDisplayLayeredPane; // Nuevo: Para el efecto de transparencia
     private JPanel productDisplayPanel;
+    private JPanel overlayPanel; // Nuevo: Panel para el efecto de transparencia
     private JTextArea statusArea;
-    private JButton cerrarMesaBtn, abrirMesaBtn, happyHourToggleBtn, addProductoBtn, setHoraBtn;
+    private JButton mainMesaActionButton, happyHourToggleBtn, addProductoBtn, setHoraBtn, eliminarProductoBtn, removerConsumoBtn, modificarProductoBtn; // AGREGADO: modificarProductoBtn
     private JLabel sistemaHoraLabel;
-    private Timer sistemaTimer; // NUEVO: Timer para el reloj del sistema
-
-    private Mesa mesaActiva = null;
     private JLabel activeMesaLabel;
+    private Timer sistemaTimer;
+
+    // Modelos de datos de la GUI
+    private Mesa mesaActiva = null;
     private DefaultTableModel consumosTableModel;
     private JTable consumosTable;
-
     private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
+    /**
+     * Constructor principal de la interfaz gráfica.
+     */
     public BarGUI() {
         barManager = new BarManager();
 
         setTitle("La Taberna - Sistema de Gestión de Bar");
-        setSize(1200, 750);
+        setSize(1280, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout(10, 10));
+        setLocationRelativeTo(null);
 
-        // Panel Superior (Header)
+        // --- Panel Superior (Header) ---
+        setupHeaderPanel();
+
+        // --- Panel Principal (Split Pane) ---
+        JSplitPane mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+        mainSplitPane.setResizeWeight(0.2);
+        mainSplitPane.setBorder(null);
+
+        // Panel Izquierdo: Selección de Mesas
+        mesaSelectionPanel = new JPanel();
+        mesaSelectionPanel.setLayout(new BoxLayout(mesaSelectionPanel, BoxLayout.Y_AXIS));
+        mesaSelectionPanel.setBorder(BorderFactory.createTitledBorder("Mesas"));
+        JScrollPane mesaScrollPane = new JScrollPane(mesaSelectionPanel);
+        mainSplitPane.setLeftComponent(mesaScrollPane);
+
+        // Panel Central-Derecho: Contenido
+        JPanel contentPanel = new JPanel(new BorderLayout(10, 10));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        activeMesaLabel = new JLabel("Seleccione una mesa", SwingConstants.CENTER);
+        activeMesaLabel.setFont(new Font("SansSerif", Font.BOLD, 20));
+        contentPanel.add(activeMesaLabel, BorderLayout.NORTH);
+
+        // Pestañas
+        JTabbedPane tabbedPane = new JTabbedPane();
+        setupTabbedPane(tabbedPane);
+        contentPanel.add(tabbedPane, BorderLayout.CENTER);
+
+        // Panel de Acciones (Botones)
+        setupActionPanel(contentPanel);
+
+        mainSplitPane.setRightComponent(contentPanel);
+        add(mainSplitPane, BorderLayout.CENTER);
+
+        // --- Panel Inferior (Status Area) ---
+        statusArea = new JTextArea(5, 50);
+        statusArea.setEditable(false);
+        statusArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        JScrollPane statusScrollPane = new JScrollPane(statusArea);
+        statusScrollPane.setBorder(BorderFactory.createTitledBorder("Registro de Eventos"));
+        add(statusScrollPane, BorderLayout.SOUTH);
+
+        // Inicializaciones finales
+        populateProductDisplayPanel();
+        updateMesaButtons();
+        updateSistemaHoraDisplay();
+        updateStatus("Sistema iniciado.");
+        selectMesa(null); // Asegura que el panel de productos esté inicialmente deshabilitado
+        setVisible(true);
+    }
+
+    /**
+     * Configura el panel superior con el título y los relojes.
+     */
+    private void setupHeaderPanel() {
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(new Color(70, 40, 10));
         JLabel titleLabel = new JLabel("La Taberna", SwingConstants.CENTER);
         titleLabel.setFont(new Font("Serif", Font.BOLD, 38));
         titleLabel.setForeground(new Color(255, 200, 100));
-        titleLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
         headerPanel.add(titleLabel, BorderLayout.CENTER);
 
         JPanel timePanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         timePanel.setBackground(headerPanel.getBackground());
-
         sistemaHoraLabel = new JLabel("", SwingConstants.RIGHT);
         sistemaHoraLabel.setFont(new Font("Monospaced", Font.BOLD, 18));
         sistemaHoraLabel.setForeground(new Color(150, 255, 150));
         sistemaHoraLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 20));
+        timePanel.add(sistemaHoraLabel);
 
         JLabel clockLabel = new JLabel(LocalTime.now().format(timeFormatter), SwingConstants.RIGHT);
         clockLabel.setFont(new Font("Monospaced", Font.BOLD, 18));
         clockLabel.setForeground(Color.WHITE);
-        clockLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 10));
-
-        timePanel.add(sistemaHoraLabel);
         timePanel.add(clockLabel);
         headerPanel.add(timePanel, BorderLayout.EAST);
-
-        // Timer para el reloj real
-        new Timer(1000, e -> clockLabel.setText(LocalTime.now().format(timeFormatter))).start();
-
-        // NUEVO: Timer para el reloj del sistema
-        sistemaTimer = new Timer(1000, e -> {
-            barManager.tick(); // Avanza el tiempo en el manager
-            updateSistemaHoraDisplay(); // Actualiza la etiqueta
-            updateAllProductPrices(); // Actualiza los precios en los paneles de productos
-        });
-        sistemaTimer.start();
-
         add(headerPanel, BorderLayout.NORTH);
 
-        JSplitPane mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        mainSplitPane.setResizeWeight(0.2);
-        mainSplitPane.setBorder(null);
+        new Timer(1000, e -> clockLabel.setText(LocalTime.now().format(timeFormatter))).start();
+        sistemaTimer = new Timer(1000, e -> {
+            barManager.tick();
+            updateSistemaHoraDisplay();
+            updateAllProductPrices();
+        });
+        sistemaTimer.start();
+    }
 
-        mesaSelectionPanel = new JPanel();
-        mesaSelectionPanel.setLayout(new BoxLayout(mesaSelectionPanel, BoxLayout.Y_AXIS));
-        JScrollPane mesaScrollPane = new JScrollPane(mesaSelectionPanel);
-        mainSplitPane.setLeftComponent(mesaScrollPane);
-
-        JPanel contentPanel = new JPanel(new BorderLayout(10, 10));
-        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        activeMesaLabel = new JLabel("Seleccione una mesa", SwingConstants.CENTER);
-        activeMesaLabel.setFont(new Font("SansSerif", Font.BOLD, 20));
-        contentPanel.add(activeMesaLabel, BorderLayout.NORTH);
-
-        JTabbedPane tabbedPane = new JTabbedPane();
-        contentPanel.add(tabbedPane, BorderLayout.CENTER);
-
+    /**
+     * Configura las pestañas de la aplicación.
+     * @param tabbedPane El JTabbedPane a configurar.
+     */
+    private void setupTabbedPane(JTabbedPane tabbedPane) {
+        // Pestaña 1: Registrar Consumo
         productDisplayPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
-        JScrollPane productScrollPane = new JScrollPane(productDisplayPanel);
-        tabbedPane.addTab("Registrar Consumo", productScrollPane);
+        productDisplayPanel.setBackground(Color.WHITE); // Fondo blanco para los productos
 
-        consumosTableModel = new DefaultTableModel(new String[]{"Producto", "Cantidad", "Hora", "Subtotal"}, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return false; }
+        // Overlay panel para el efecto de transparencia
+        overlayPanel = new JPanel();
+        overlayPanel.setBackground(new Color(100, 100, 100, 150)); // Gris transparente
+        overlayPanel.setOpaque(true);
+        overlayPanel.setVisible(true); // Inicialmente visible (deshabilitado)
+
+        productDisplayLayeredPane = new JLayeredPane();
+        productDisplayLayeredPane.setPreferredSize(new Dimension(800, 400)); // Ajustar si es necesario
+        productDisplayLayeredPane.setLayout(new OverlayLayout(productDisplayLayeredPane)); // Usa OverlayLayout
+
+        JScrollPane productScrollPane = new JScrollPane(productDisplayPanel);
+        productScrollPane.setBorder(BorderFactory.createTitledBorder("Seleccionar Producto"));
+        productScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        productScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+
+        productDisplayLayeredPane.add(productScrollPane, JLayeredPane.DEFAULT_LAYER);
+        productDisplayLayeredPane.add(overlayPanel, JLayeredPane.PALETTE_LAYER); // Overlay encima
+
+        tabbedPane.addTab("Registrar Consumo", productDisplayLayeredPane);
+
+        // Pestaña 2: Ver Consumos
+        JPanel consumosPanel = new JPanel(new BorderLayout(5, 5));
+        consumosPanel.setBorder(BorderFactory.createTitledBorder("Consumos Actuales"));
+
+        String[] columnNames = {"Producto", "Detalle", "Cantidad", "Hora", "Subtotal"};
+        consumosTableModel = new DefaultTableModel(columnNames, 0) {
+            @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         consumosTable = new JTable(consumosTableModel);
-        tabbedPane.addTab("Ver Consumos", new JScrollPane(consumosTable));
+        consumosTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        consumosPanel.add(new JScrollPane(consumosTable), BorderLayout.CENTER);
 
+        removerConsumoBtn = new JButton("Remover Consumo Seleccionado");
+        removerConsumoBtn.addActionListener(e -> removerConsumo());
+        JPanel removerPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        removerPanel.add(removerConsumoBtn);
+        consumosPanel.add(removerPanel, BorderLayout.SOUTH);
+
+        tabbedPane.addTab("Ver Consumos", consumosPanel);
+    }
+
+    /**
+     * Configura el panel inferior de botones de acción.
+     * @param parentPanel El panel al que se agregarán los botones.
+     */
+    private void setupActionPanel(JPanel parentPanel) {
         JPanel mesaActionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
-        abrirMesaBtn = createStyledButton("Abrir Mesa", new Color(50, 150, 50));
-        cerrarMesaBtn = createStyledButton("Cerrar Mesa", new Color(180, 50, 50));
+        mainMesaActionButton = createStyledButton("Abrir/Cerrar Mesa", new Color(100, 100, 100)); // Botón inicial neutral
+
         happyHourToggleBtn = createStyledButton("Happy Hour OFF", new Color(200, 150, 0));
         addProductoBtn = createStyledButton("Añadir Producto", new Color(0, 100, 150));
+        modificarProductoBtn = createStyledButton("Modificar Producto", new Color(0, 150, 150)); // NUEVO BOTÓN
+        eliminarProductoBtn = createStyledButton("Eliminar Producto", new Color(150, 0, 0));
         setHoraBtn = createStyledButton("Fijar Hora", new Color(100, 100, 255));
-        cerrarMesaBtn.setEnabled(false);
 
-        abrirMesaBtn.addActionListener(e -> abrirMesa());
-        cerrarMesaBtn.addActionListener(e -> cerrarMesa());
+        mainMesaActionButton.addActionListener(e -> handleMesaAction());
         happyHourToggleBtn.addActionListener(e -> toggleHappyHour());
         addProductoBtn.addActionListener(e -> addNuevoProducto());
+        modificarProductoBtn.addActionListener(e -> modificarProducto()); // Acción para el nuevo botón
+        eliminarProductoBtn.addActionListener(e -> eliminarProducto());
         setHoraBtn.addActionListener(e -> setSistemaHora());
 
-        mesaActionPanel.add(abrirMesaBtn);
-        mesaActionPanel.add(cerrarMesaBtn);
+        mesaActionPanel.add(mainMesaActionButton);
         mesaActionPanel.add(happyHourToggleBtn);
         mesaActionPanel.add(addProductoBtn);
+        mesaActionPanel.add(modificarProductoBtn); // Añadir el nuevo botón al panel
+        mesaActionPanel.add(eliminarProductoBtn);
         mesaActionPanel.add(setHoraBtn);
-        contentPanel.add(mesaActionPanel, BorderLayout.SOUTH);
-
-        mainSplitPane.setRightComponent(contentPanel);
-        add(mainSplitPane, BorderLayout.CENTER);
-
-        statusArea = new JTextArea(5, 50);
-        add(new JScrollPane(statusArea), BorderLayout.SOUTH);
-
-        // Inicializaciones
-        populateProductDisplayPanel();
-        updateMesaButtons();
-        updateStatus("Sistema iniciado.");
-        setLocationRelativeTo(null);
-        setVisible(true);
+        parentPanel.add(mesaActionPanel, BorderLayout.SOUTH);
     }
 
     private JButton createStyledButton(String text, Color bgColor) {
@@ -145,16 +220,10 @@ public class BarGUI extends JFrame {
         return btn;
     }
 
-    /**
-     * Actualiza la etiqueta que muestra la hora del sistema.
-     */
     private void updateSistemaHoraDisplay() {
         sistemaHoraLabel.setText("Sistema: " + barManager.getSistemaTime().format(timeFormatter));
     }
 
-    /**
-     * NUEVO: Actualiza el precio en todos los paneles de productos.
-     */
     private void updateAllProductPrices() {
         int currentHour = barManager.getSistemaHora();
         boolean isHappyHour = barManager.isHappyHourActive();
@@ -165,6 +234,20 @@ public class BarGUI extends JFrame {
         }
     }
 
+    private void populateProductDisplayPanel() {
+        productDisplayPanel.removeAll();
+        for (Articulo art : barManager.getTodosLosArticulos().values()) {
+            ProductoPanel pPanel = new ProductoPanel(art);
+            pPanel.addMouseListener(new MouseAdapter() {
+                @Override public void mouseClicked(MouseEvent e) { registrarConsumoVisual(pPanel.getArticulo()); }
+            });
+            productDisplayPanel.add(pPanel);
+        }
+        updateAllProductPrices();
+        productDisplayPanel.revalidate();
+        productDisplayPanel.repaint();
+    }
+
     private void setSistemaHora() {
         String horaStr = JOptionPane.showInputDialog(this, "Ingrese la nueva hora del sistema (0-23):", String.valueOf(barManager.getSistemaHora()));
         if (horaStr != null && !horaStr.trim().isEmpty()) {
@@ -172,7 +255,7 @@ public class BarGUI extends JFrame {
                 int nuevaHora = Integer.parseInt(horaStr.trim());
                 if (barManager.setSistemaHora(nuevaHora)) {
                     updateStatus("La hora del sistema se ha establecido en " + nuevaHora + ":00.");
-                    updateSistemaHoraDisplay(); // Actualiza inmediatamente la pantalla
+                    updateSistemaHoraDisplay();
                 } else {
                     JOptionPane.showMessageDialog(this, "Hora inválida. Debe ser entre 0 y 23.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -182,78 +265,82 @@ public class BarGUI extends JFrame {
         }
     }
 
-    private void populateProductDisplayPanel() {
-        productDisplayPanel.removeAll();
-        for (Articulo art : barManager.getTodosLosArticulos().values()) {
-            ProductoPanel pPanel = new ProductoPanel(art);
-            pPanel.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    registrarConsumoVisual(pPanel.getArticulo());
-                }
-            });
-            productDisplayPanel.add(pPanel);
-        }
-        updateAllProductPrices(); // Poner los precios iniciales correctos
-        productDisplayPanel.revalidate();
-        productDisplayPanel.repaint();
-    }
+    private void selectMesa(Mesa mesa) {
+        mesaActiva = mesa;
 
-    private void toggleHappyHour() {
-        barManager.toggleHappyHour();
-        if (barManager.isHappyHourActive()) {
-            happyHourToggleBtn.setText("Happy Hour ON");
-            happyHourToggleBtn.setBackground(new Color(0, 150, 0));
-            updateStatus("¡Happy Hour activado!");
+        // Actualizar el estado del label de la mesa activa
+        if (mesa != null) {
+            if (mesa.estaOcupada()) {
+                activeMesaLabel.setText("Mesa " + mesa.getNumero() + " - Abierta desde " + mesa.horaApertura + ":00");
+                activeMesaLabel.setForeground(new Color(200, 0, 0));
+                // Habilitar panel de productos y ocultar overlay
+                overlayPanel.setVisible(false);
+                removerConsumoBtn.setEnabled(true);
+            } else {
+                activeMesaLabel.setText("Mesa " + mesa.getNumero() + " - Libre");
+                activeMesaLabel.setForeground(new Color(0, 120, 0));
+                // Deshabilitar panel de productos y mostrar overlay
+                overlayPanel.setVisible(true);
+                removerConsumoBtn.setEnabled(false);
+            }
         } else {
-            happyHourToggleBtn.setText("Happy Hour OFF");
-            happyHourToggleBtn.setBackground(new Color(200, 150, 0));
-            updateStatus("Happy Hour desactivado.");
+            activeMesaLabel.setText("Seleccione una mesa");
+            activeMesaLabel.setForeground(new Color(0, 120, 0));
+            // Deshabilitar panel de productos y mostrar overlay
+            overlayPanel.setVisible(true);
+            removerConsumoBtn.setEnabled(false);
         }
-        updateAllProductPrices(); // MODIFICADO: Actualizar precios al cambiar estado
+
+        // Actualizar el botón principal de acción de mesa
+        updateMainMesaActionButton();
+
+        // Limpiar y poblar la tabla de consumos
+        consumosTableModel.setRowCount(0);
+        if (mesa != null && mesa.estaOcupada()) {
+            for (Consumo c : mesa.getConsumos()) {
+                consumosTableModel.addRow(new Object[]{
+                        c.getArticulo().getDescripcion(),
+                        c.getDetalle(),
+                        c.getCantidad(),
+                        String.format("%02d:00", c.getHoraConsumo()),
+                        String.format("$%.2f", c.getSubtotal())
+                });
+            }
+        }
+        if (mesa != null) {
+            updateStatus("Mesa " + mesa.getNumero() + " seleccionada.");
+        }
     }
 
-    private void registrarConsumoVisual(Articulo art) {
-        if (mesaActiva == null || !mesaActiva.estaOcupada()) {
-            JOptionPane.showMessageDialog(this, "Por favor, seleccione y abra una mesa primero.", "Mesa no abierta", JOptionPane.WARNING_MESSAGE);
+    private void updateMainMesaActionButton() {
+        if (mesaActiva == null) {
+            mainMesaActionButton.setText("Seleccione Mesa");
+            mainMesaActionButton.setBackground(new Color(100, 100, 100)); // Gris neutro
+            mainMesaActionButton.setEnabled(false);
+        } else if (mesaActiva.estaOcupada()) {
+            mainMesaActionButton.setText("Cerrar Mesa " + mesaActiva.getNumero());
+            mainMesaActionButton.setBackground(new Color(180, 50, 50)); // Rojo para cerrar
+            mainMesaActionButton.setEnabled(true);
+        } else {
+            mainMesaActionButton.setText("Abrir Mesa " + mesaActiva.getNumero());
+            mainMesaActionButton.setBackground(new Color(50, 150, 50)); // Verde para abrir
+            mainMesaActionButton.setEnabled(true);
+        }
+    }
+
+    private void handleMesaAction() {
+        if (mesaActiva == null) {
+            JOptionPane.showMessageDialog(this, "Por favor, seleccione una mesa primero.", "Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        JPanel panel = new JPanel(new GridLayout(0, 1, 5, 5));
-        panel.add(new JLabel("Producto: " + art.getDescripcion()));
-
-        final int horaActualSistema = barManager.getSistemaHora();
-        double currentCalculatedPrice = barManager.isHappyHourActive() ? art.getPrecioHappyHour() : art.getPrecioPorHora(horaActualSistema);
-
-        panel.add(new JLabel(String.format("Precio actual (Hora: %d:00): $%.2f", horaActualSistema, currentCalculatedPrice)));
-
-        JTextField cantidadField = new JTextField("1");
-        JTextField horaField = new JTextField(String.valueOf(horaActualSistema));
-
-        panel.add(new JLabel("Cantidad:"));
-        panel.add(cantidadField);
-        panel.add(new JLabel("Hora del consumo (0-23):"));
-        panel.add(horaField);
-
-        int result = JOptionPane.showConfirmDialog(this, panel, "Registrar Consumo en Mesa " + mesaActiva.getNumero(), JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-
-        if (result == JOptionPane.OK_OPTION) {
-            try {
-                int cantidad = Integer.parseInt(cantidadField.getText());
-                int hora = Integer.parseInt(horaField.getText());
-                if (cantidad <= 0 || hora < 0 || hora > 23) throw new NumberFormatException("Datos fuera de rango.");
-
-                if (barManager.agregarConsumoAMesa(mesaActiva.getNumero(), art.getCodigo(), cantidad, hora)) {
-                    updateStatus("Consumo registrado: " + cantidad + "x " + art.getDescripcion() + " en mesa " + mesaActiva.getNumero());
-                    selectMesa(mesaActiva);
-                }
-            } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(this, "Datos inválidos. Verifique cantidad y hora.", "Error", JOptionPane.ERROR_MESSAGE);
-            }
+        if (mesaActiva.estaOcupada()) {
+            cerrarMesa();
+        } else {
+            abrirMesa();
         }
     }
 
-    // Otros métodos de la GUI (abrirMesa, cerrarMesa, etc.) permanecen sin cambios significativos...
     private void updateMesaButtons() {
         mesaSelectionPanel.removeAll();
         for (Mesa currentMesa : barManager.getTodasLasMesas()) {
@@ -280,103 +367,388 @@ public class BarGUI extends JFrame {
         mesaSelectionPanel.repaint();
     }
 
-    private void selectMesa(Mesa mesa) {
-        mesaActiva = mesa;
-        if (mesa.estaOcupada()) {
-            activeMesaLabel.setText("Mesa " + mesa.getNumero() + " - Abierta desde " + mesa.horaApertura + ":00");
-            activeMesaLabel.setForeground(new Color(200, 0, 0));
-        } else {
-            activeMesaLabel.setText("Mesa " + mesa.getNumero() + " - Libre");
-            activeMesaLabel.setForeground(new Color(0, 120, 0));
+    private void registrarConsumoVisual(Articulo art) {
+        if (mesaActiva == null || !mesaActiva.estaOcupada()) {
+            JOptionPane.showMessageDialog(this, "Por favor, seleccione y abra una mesa primero.", "Mesa no abierta", JOptionPane.WARNING_MESSAGE);
+            return;
         }
-        cerrarMesaBtn.setEnabled(mesa.estaOcupada());
-        consumosTableModel.setRowCount(0);
-        if (mesa.estaOcupada()) {
-            for (Consumo c : mesa.getConsumos()) {
-                consumosTableModel.addRow(new Object[]{
-                        c.getArticulo().getDescripcion(),
-                        c.getCantidad(),
-                        String.format("%02d:00", c.getHoraConsumo()),
-                        String.format("$%.2f", c.getSubtotal())
-                });
+
+        JDialog dialog = new JDialog(this, "Registrar Consumo: " + art.getDescripcion(), true);
+        dialog.setLayout(new BorderLayout(10, 10));
+
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JPanel qtyPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        qtyPanel.add(new JLabel("Cantidad:"));
+        JSpinner cantidadSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 100, 1));
+        qtyPanel.add(cantidadSpinner);
+        mainPanel.add(qtyPanel);
+        mainPanel.add(new JSeparator());
+
+        List<JComponent> specControls = new ArrayList<>();
+        if (art.getEspecificaciones().isEmpty()) {
+            mainPanel.add(new JLabel("No hay especificaciones disponibles."));
+            mainPanel.add(Box.createVerticalStrut(10));
+        } else {
+            for (Especificacion spec : art.getEspecificaciones()) {
+                JPanel specPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                specPanel.add(new JLabel(spec.getNombre() + " (+" + String.format("$%.2f", spec.getPrecioPorUnidad()) + "):"));
+
+                if (spec.getTipo() == TipoEspecificacion.CANTIDAD) {
+                    JSpinner specSpinner = new JSpinner(new SpinnerNumberModel(0, 0, 10, 1));
+                    specPanel.add(specSpinner);
+                    specControls.add(specSpinner);
+                } else { // SI_NO
+                    JCheckBox checkBox = new JCheckBox();
+                    specPanel.add(checkBox);
+                    specControls.add(checkBox);
+                }
+                mainPanel.add(specPanel);
             }
         }
-        updateStatus("Mesa " + mesa.getNumero() + " seleccionada.");
+
+        mainPanel.add(Box.createVerticalGlue());
+
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        JLabel totalLabel = new JLabel("Total: $0.00");
+        totalLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
+
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton okButton = new JButton("Aceptar");
+        JButton cancelButton = new JButton("Cancelar");
+        buttonsPanel.add(okButton);
+        buttonsPanel.add(cancelButton);
+
+        bottomPanel.add(totalLabel, BorderLayout.WEST);
+        bottomPanel.add(buttonsPanel, BorderLayout.EAST);
+
+        Runnable updatePriceAction = () -> {
+            double precioBase = barManager.isHappyHourActive() ? art.getPrecioHappyHour() : art.getPrecioPorHora(barManager.getSistemaHora());
+            double costoOpciones = 0;
+
+            for (int i = 0; i < art.getEspecificaciones().size(); i++) {
+                Especificacion spec = art.getEspecificaciones().get(i);
+                JComponent control = specControls.get(i);
+                int value = 0;
+                if (control instanceof JSpinner) {
+                    value = (Integer) ((JSpinner) control).getValue();
+                } else if (control instanceof JCheckBox) {
+                    value = ((JCheckBox) control).isSelected() ? 1 : 0;
+                }
+                costoOpciones += spec.getPrecioPorUnidad() * value;
+            }
+
+            double precioUnitarioFinal = precioBase + costoOpciones;
+            int cantidadTotal = (Integer) cantidadSpinner.getValue();
+            double precioTotal = precioUnitarioFinal * cantidadTotal;
+
+            totalLabel.setText(String.format("Total: $%.2f", precioTotal));
+        };
+
+        cantidadSpinner.addChangeListener(e -> updatePriceAction.run());
+        specControls.forEach(c -> {
+            if (c instanceof JSpinner) ((JSpinner) c).addChangeListener(e -> updatePriceAction.run());
+            if (c instanceof JCheckBox) ((JCheckBox) c).addActionListener(e -> updatePriceAction.run());
+        });
+
+        updatePriceAction.run();
+
+        okButton.addActionListener(e -> {
+            Map<Especificacion, Integer> opcionesSeleccionadas = new HashMap<>();
+            for (int i = 0; i < art.getEspecificaciones().size(); i++) {
+                Especificacion spec = art.getEspecificaciones().get(i);
+                JComponent control = specControls.get(i);
+                int value = 0;
+                if (control instanceof JSpinner) value = (Integer) ((JSpinner) control).getValue();
+                if (control instanceof JCheckBox) value = ((JCheckBox) control).isSelected() ? 1 : 0;
+
+                // Solo añadir opciones que tengan un valor (ej. spinner > 0 o checkbox seleccionado)
+                if (value > 0) {
+                    opcionesSeleccionadas.put(spec, value);
+                }
+            }
+
+            int cantidad = (Integer) cantidadSpinner.getValue();
+            double precioBase = barManager.isHappyHourActive() ? art.getPrecioHappyHour() : art.getPrecioPorHora(barManager.getSistemaHora());
+
+            barManager.agregarConsumoAMesa(mesaActiva.getNumero(), art, cantidad, precioBase, opcionesSeleccionadas); // Se pasa el objeto Articulo completo
+            updateStatus("Consumo registrado: " + cantidad + "x " + art.getDescripcion() + (opcionesSeleccionadas.isEmpty() ? "" : " con especificaciones."));
+            selectMesa(mesaActiva);
+            dialog.dispose();
+        });
+
+        cancelButton.addActionListener(e -> dialog.dispose());
+
+        dialog.add(new JScrollPane(mainPanel), BorderLayout.CENTER);
+        dialog.add(bottomPanel, BorderLayout.SOUTH);
+        dialog.pack(); // Ajusta el tamaño de la ventana al contenido
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private void removerConsumo() {
+        if (mesaActiva == null || !mesaActiva.estaOcupada()) {
+            JOptionPane.showMessageDialog(this, "Debe seleccionar una mesa activa.", "Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int selectedRow = consumosTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Por favor, seleccione un consumo de la tabla para remover.", "Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this, "¿Está seguro de que desea remover el consumo seleccionado?", "Confirmar", JOptionPane.YES_NO_OPTION);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (barManager.removerConsumoDeMesa(mesaActiva.getNumero(), selectedRow)) {
+                updateStatus("Consumo removido de la mesa " + mesaActiva.getNumero());
+                selectMesa(mesaActiva);
+            } else {
+                JOptionPane.showMessageDialog(this, "No se pudo remover el consumo.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void eliminarProducto() {
+        Map<String, Articulo> articulosMap = barManager.getTodosLosArticulos();
+        if (articulosMap.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No hay productos para eliminar.", "Catálogo Vacío", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        List<String> descripciones = articulosMap.values().stream()
+                .map(art -> art.getDescripcion() + " (" + art.getCodigo() + ")")
+                .sorted()
+                .collect(Collectors.toList());
+
+        String seleccion = (String) JOptionPane.showInputDialog(
+                this, "Seleccione el producto a eliminar:", "Eliminar Producto",
+                JOptionPane.QUESTION_MESSAGE, null, descripciones.toArray(), descripciones.get(0)
+        );
+
+        if (seleccion != null) {
+            String codigo = seleccion.substring(seleccion.lastIndexOf("(") + 1, seleccion.lastIndexOf(")"));
+
+            int confirm = JOptionPane.showConfirmDialog(this, "Esta acción es permanente.\n¿Eliminar '" + seleccion + "'?", "Confirmar Eliminación", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                int resultado = barManager.eliminarArticulo(codigo);
+                switch (resultado) {
+                    case 0: // Éxito
+                        updateStatus("Producto " + codigo + " eliminado.");
+                        populateProductDisplayPanel();
+                        break;
+                    case 1: // No encontrado
+                        JOptionPane.showMessageDialog(this, "Error: Producto no encontrado.", "Error", JOptionPane.ERROR_MESSAGE);
+                        break;
+                    case 2: // En uso
+                        JOptionPane.showMessageDialog(this, "Producto en uso en una mesa abierta. No se puede eliminar.", "Acción Bloqueada", JOptionPane.ERROR_MESSAGE);
+                        break;
+                }
+            }
+        }
+    }
+
+    private void modificarProducto() {
+        Map<String, Articulo> articulosMap = barManager.getTodosLosArticulos();
+        if (articulosMap.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No hay productos para modificar.", "Catálogo Vacío", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        List<String> descripciones = articulosMap.values().stream()
+                .map(art -> art.getDescripcion() + " (" + art.getCodigo() + ")")
+                .sorted()
+                .collect(Collectors.toList());
+
+        String seleccion = (String) JOptionPane.showInputDialog(
+                this, "Seleccione el producto a modificar:", "Modificar Producto",
+                JOptionPane.QUESTION_MESSAGE, null, descripciones.toArray(), descripciones.get(0)
+        );
+
+        if (seleccion != null) {
+            String codigoSeleccionado = seleccion.substring(seleccion.lastIndexOf("(") + 1, seleccion.lastIndexOf(")"));
+            Articulo articuloExistente = barManager.getArticulo(codigoSeleccionado);
+
+            if (articuloExistente == null) {
+                JOptionPane.showMessageDialog(this, "Error: Producto no encontrado para modificar.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // Crear campos de entrada pre-rellenados
+            JTextField codigoField = new JTextField(articuloExistente.getCodigo(), 10);
+            codigoField.setEditable(false); // El código no se puede modificar
+            JTextField descripcionField = new JTextField(articuloExistente.getDescripcion(), 20);
+            JTextField precioDiurnoField = new JTextField(String.valueOf(articuloExistente.getPrecioDiurno()), 5);
+            JTextField precioNocturnoField = new JTextField(String.valueOf(articuloExistente.getPrecioNocturno()), 5);
+            JTextField precioHappyHourField = new JTextField(String.valueOf(articuloExistente.getPrecioHappyHour()), 5);
+            JTextField imagenPathField = new JTextField(articuloExistente.getImagenPath(), 20);
+
+            // Convertir la lista de especificaciones a String para mostrar en el JTextArea
+            String especificacionesStr = articuloExistente.getEspecificaciones().stream()
+                    .map(s -> s.getNombre() + ":" + s.getTipo().name() + ":" + String.format("%.0f", s.getPrecioPorUnidad()))
+                    .collect(Collectors.joining(";"));
+            JTextArea especificacionesArea = new JTextArea(especificacionesStr, 3, 20);
+            especificacionesArea.setLineWrap(true);
+            especificacionesArea.setWrapStyleWord(true);
+
+
+            JPanel panel = new JPanel(new GridLayout(0, 2, 5, 5));
+            panel.add(new JLabel("Código:"));
+            panel.add(codigoField);
+            panel.add(new JLabel("Descripción:"));
+            panel.add(descripcionField);
+            panel.add(new JLabel("Precio Diurno:"));
+            panel.add(precioDiurnoField);
+            panel.add(new JLabel("Precio Nocturno:"));
+            panel.add(precioNocturnoField);
+            panel.add(new JLabel("Precio Happy Hour:"));
+            panel.add(precioHappyHourField);
+            panel.add(new JLabel("Ruta Imagen:"));
+            panel.add(imagenPathField);
+            panel.add(new JLabel("Especificaciones (Nombre:TIPO:Precio;...):"));
+            panel.add(new JScrollPane(especificacionesArea));
+
+            int result = JOptionPane.showConfirmDialog(this, panel, "Modificar Producto: " + articuloExistente.getDescripcion(), JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+            if (result == JOptionPane.OK_OPTION) {
+                try {
+                    String codigo = codigoField.getText().trim(); // No se modifica, pero se obtiene
+                    String nuevaDescripcion = descripcionField.getText().trim();
+                    double nuevoPrecioDiurno = Double.parseDouble(precioDiurnoField.getText().trim());
+                    double nuevoPrecioNocturno = Double.parseDouble(precioNocturnoField.getText().trim());
+                    double nuevoPrecioHappyHour = Double.parseDouble(precioHappyHourField.getText().trim());
+                    String nuevaImagenPath = imagenPathField.getText().trim();
+                    String nuevasEspecificacionesStr = especificacionesArea.getText().trim();
+
+                    // Crear un nuevo objeto Articulo con los datos actualizados
+                    // El constructor de Articulo se encargará de parsear las especificaciones
+                    Articulo articuloModificado = new Articulo(codigo, nuevaDescripcion, nuevoPrecioDiurno,
+                            nuevoPrecioNocturno, nuevoPrecioHappyHour, nuevaImagenPath, nuevasEspecificacionesStr);
+
+                    if (barManager.modificarArticulo(articuloModificado)) {
+                        updateStatus("Producto '" + nuevaDescripcion + "' modificado exitosamente.");
+                        populateProductDisplayPanel(); // Refrescar el panel de productos
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Error: No se pudo modificar el producto (código no encontrado).", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(this, "Por favor, ingrese valores numéricos válidos para los precios.", "Error de Formato", JOptionPane.ERROR_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "Error al modificar producto: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    ex.printStackTrace();
+                }
+            }
+        }
+    }
+
+
+    private void toggleHappyHour() {
+        barManager.toggleHappyHour();
+        if (barManager.isHappyHourActive()) {
+            happyHourToggleBtn.setText("Happy Hour ON");
+            happyHourToggleBtn.setBackground(new Color(0, 150, 0));
+            updateStatus("¡Happy Hour activado!");
+        } else {
+            happyHourToggleBtn.setText("Happy Hour OFF");
+            happyHourToggleBtn.setBackground(new Color(200, 150, 0));
+            updateStatus("Happy Hour desactivado.");
+        }
+        updateAllProductPrices();
     }
 
     private void abrirMesa() {
-        List<Integer> mesaNumbers = barManager.getNumerosMesasLibres();
-        if (mesaNumbers.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Todas las mesas están ocupadas.", "No hay mesas disponibles", JOptionPane.INFORMATION_MESSAGE);
+        if (mesaActiva == null) {
+            JOptionPane.showMessageDialog(this, "Por favor, seleccione una mesa de la lista.", "Ninguna mesa seleccionada", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        Integer[] availableMesaNumbers = mesaNumbers.toArray(new Integer[0]);
-        Integer mesaNum = (Integer) JOptionPane.showInputDialog(this, "Seleccione mesa a abrir:", "Abrir Mesa", JOptionPane.QUESTION_MESSAGE, null, availableMesaNumbers, availableMesaNumbers[0]);
-        if (mesaNum == null) return;
-
-        String horaStr = JOptionPane.showInputDialog(this, "Hora de apertura (0-23):", String.valueOf(barManager.getSistemaHora()));
-        if (horaStr == null || horaStr.isEmpty()) return;
-
-        try {
-            int hora = Integer.parseInt(horaStr);
-            if (hora < 0 || hora > 23) throw new NumberFormatException("La hora debe estar entre 0 y 23.");
-            if (barManager.abrirMesa(mesaNum, hora)) {
-                updateStatus("Mesa " + mesaNum + " abierta a las " + hora + ":00");
-                selectMesa(barManager.getMesa(mesaNum));
-            } else {
-                JOptionPane.showMessageDialog(this, "La mesa " + mesaNum + " ya está ocupada o no existe.", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Hora inválida: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        if (mesaActiva.estaOcupada()) {
+            JOptionPane.showMessageDialog(this, "La mesa " + mesaActiva.getNumero() + " ya está ocupada.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
         }
-    }
 
-    private void addNuevoProducto() {
-        JPanel panel = new JPanel(new GridLayout(0, 2, 5, 5));
-        JTextField codigoField = new JTextField(10), descField = new JTextField(20), pdField = new JTextField("0.0"), pnField = new JTextField("0.0"), phhField = new JTextField("0.0"), imgField = new JTextField("images/default.png");
-        panel.add(new JLabel("Código:")); panel.add(codigoField);
-        panel.add(new JLabel("Descripción:")); panel.add(descField);
-        panel.add(new JLabel("Precio Diurno:")); panel.add(pdField);
-        panel.add(new JLabel("Precio Nocturno:")); panel.add(pnField);
-        panel.add(new JLabel("Precio Happy Hour:")); panel.add(phhField);
-        panel.add(new JLabel("Ruta de Imagen:")); panel.add(imgField);
-        int result = JOptionPane.showConfirmDialog(this, panel, "Añadir Nuevo Producto", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (result == JOptionPane.OK_OPTION) {
-            try {
-                String codigo = codigoField.getText().trim(), descripcion = descField.getText().trim(), imagenPath = imgField.getText().trim();
-                if (codigo.isEmpty() || descripcion.isEmpty()) { JOptionPane.showMessageDialog(this, "Código y Descripción no pueden estar vacíos.", "Error", JOptionPane.ERROR_MESSAGE); return; }
-                if (barManager.getArticulo(codigo) != null) { JOptionPane.showMessageDialog(this, "Ya existe un producto con el código '" + codigo + "'.", "Error", JOptionPane.ERROR_MESSAGE); return; }
-                double pDiurno = Double.parseDouble(pdField.getText().trim()), pNocturno = Double.parseDouble(pnField.getText().trim()), pHH = Double.parseDouble(phhField.getText().trim());
-                if (pDiurno < 0 || pNocturno < 0 || pHH < 0) { JOptionPane.showMessageDialog(this, "Los precios no pueden ser negativos.", "Error", JOptionPane.ERROR_MESSAGE); return; }
-                if (imagenPath.isEmpty() || !new java.io.File(imagenPath).exists()) { imagenPath = "images/default.png"; }
-                Articulo nuevoArticulo = new Articulo(codigo, descripcion, pDiurno, pNocturno, pHH, imagenPath);
-                if (barManager.addArticulo(nuevoArticulo)) { updateStatus("Producto '" + descripcion + "' añadido."); populateProductDisplayPanel(); }
-                else { JOptionPane.showMessageDialog(this, "Error al añadir el producto.", "Error", JOptionPane.ERROR_MESSAGE); }
-            } catch (NumberFormatException ex) { JOptionPane.showMessageDialog(this, "Valores de precio inválidos.", "Error de Formato", JOptionPane.ERROR_MESSAGE); }
+        // Abre la mesa con la hora actual del sistema sin preguntar
+        int hora = barManager.getSistemaHora();
+        if (barManager.abrirMesa(mesaActiva.getNumero(), hora)) {
+            updateStatus("Mesa " + mesaActiva.getNumero() + " abierta a las " + hora + ":00");
+            selectMesa(mesaActiva); // Refresca el estado visual
+        } else {
+            JOptionPane.showMessageDialog(this, "No se pudo abrir la mesa.", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void cerrarMesa() {
-        if (mesaActiva == null || !mesaActiva.estaOcupada()) {
-            JOptionPane.showMessageDialog(this, "Seleccione una mesa abierta para cerrar.", "Error", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
+        if (mesaActiva == null || !mesaActiva.estaOcupada()) return;
+
         int confirm = JOptionPane.showConfirmDialog(this, "¿Cerrar la Mesa " + mesaActiva.getNumero() + "?", "Confirmar Cierre", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             String ticket = barManager.cerrarMesa(mesaActiva.getNumero());
-            if (ticket != null) {
-                JTextArea ticketArea = new JTextArea(ticket);
-                ticketArea.setEditable(false);
-                ticketArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-                JScrollPane scrollPane = new JScrollPane(ticketArea);
-                scrollPane.setPreferredSize(new Dimension(400, 300));
-                JOptionPane.showMessageDialog(this, scrollPane, "Ticket - Mesa " + mesaActiva.getNumero(), JOptionPane.INFORMATION_MESSAGE);
-                updateStatus("Mesa " + mesaActiva.getNumero() + " cerrada.");
-                selectMesa(null);
-                activeMesaLabel.setText("Seleccione una mesa");
-                activeMesaLabel.setForeground(new Color(80, 80, 80));
-                consumosTableModel.setRowCount(0);
-                cerrarMesaBtn.setEnabled(false);
+            JTextArea ticketArea = new JTextArea(ticket, 20, 35);
+            ticketArea.setEditable(false);
+            ticketArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+            JOptionPane.showMessageDialog(this, new JScrollPane(ticketArea), "Ticket - Mesa " + mesaActiva.getNumero(), JOptionPane.INFORMATION_MESSAGE);
+
+            updateStatus("Mesa " + mesaActiva.getNumero() + " cerrada.");
+            selectMesa(null); // Deseleccionar la mesa
+        }
+    }
+
+    private void addNuevoProducto() {
+        JTextField codigoField = new JTextField(10);
+        JTextField descripcionField = new JTextField(20);
+        JTextField precioDiurnoField = new JTextField(5);
+        JTextField precioNocturnoField = new JTextField(5);
+        JTextField precioHappyHourField = new JTextField(5);
+        JTextField imagenPathField = new JTextField(20);
+        JTextArea especificacionesArea = new JTextArea(3, 20); // Para especificaciones
+        especificacionesArea.setLineWrap(true); // Habilitar ajuste de línea
+        especificacionesArea.setWrapStyleWord(true); // Ajustar por palabra
+
+        JPanel panel = new JPanel(new GridLayout(0, 2, 5, 5));
+        panel.add(new JLabel("Código:"));
+        panel.add(codigoField);
+        panel.add(new JLabel("Descripción:"));
+        panel.add(descripcionField);
+        panel.add(new JLabel("Precio Diurno:"));
+        panel.add(precioDiurnoField);
+        panel.add(new JLabel("Precio Nocturno:"));
+        panel.add(precioNocturnoField);
+        panel.add(new JLabel("Precio Happy Hour:"));
+        panel.add(precioHappyHourField);
+        panel.add(new JLabel("Ruta Imagen:"));
+        panel.add(imagenPathField);
+        panel.add(new JLabel("Especificaciones (ej: Extra Queso:SI_NO:100;Cantidad Papas:CANTIDAD:50):"));
+        panel.add(new JScrollPane(especificacionesArea));
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Añadir Nuevo Producto", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+        if (result == JOptionPane.OK_OPTION) {
+            try {
+                String codigo = codigoField.getText().trim();
+                String descripcion = descripcionField.getText().trim();
+                double precioDiurno = Double.parseDouble(precioDiurnoField.getText().trim());
+                double precioNocturno = Double.parseDouble(precioNocturnoField.getText().trim());
+                double precioHappyHour = Double.parseDouble(precioHappyHourField.getText().trim());
+                String imagenPath = imagenPathField.getText().trim();
+                String especificacionesStr = especificacionesArea.getText().trim();
+
+                Articulo nuevoArticulo = new Articulo(codigo, descripcion, precioDiurno, precioNocturno, precioHappyHour, imagenPath, especificacionesStr);
+
+                if (barManager.addArticulo(nuevoArticulo)) {
+                    updateStatus("Nuevo producto añadido: " + descripcion);
+                    populateProductDisplayPanel(); // Refrescar el panel de productos
+                } else {
+                    JOptionPane.showMessageDialog(this, "El código de producto ya existe.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "Por favor, ingrese valores numéricos válidos para los precios.", "Error de Formato", JOptionPane.ERROR_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error al añadir producto: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
             }
         }
     }
@@ -384,7 +756,7 @@ public class BarGUI extends JFrame {
     private void updateStatus(String message) {
         statusArea.append("\n[" + LocalTime.now().format(timeFormatter) + "] " + message);
         statusArea.setCaretPosition(statusArea.getDocument().getLength());
-        updateMesaButtons();
+        updateMesaButtons(); // Siempre actualizar los botones de mesa al cambiar el estado
     }
 
     public static void main(String[] args) {

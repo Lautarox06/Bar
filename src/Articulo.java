@@ -1,3 +1,7 @@
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public class Articulo {
     String codigo;
     String descripcion;
@@ -5,51 +9,67 @@ public class Articulo {
     double precioNocturno;
     double precioHappyHour;
     String imagenPath;
+    // MODIFICADO: Ahora usa una lista de objetos Especificacion
+    List<Especificacion> especificaciones;
 
-    public Articulo(String codigo, String descripcion, double precioDiurno, double precioNocturno, double precioHappyHour, String imagenPath) {
+    public Articulo(String codigo, String descripcion, double precioDiurno, double precioNocturno, double precioHappyHour, String imagenPath, String especificacionesStr) {
         this.codigo = codigo;
         this.descripcion = descripcion;
         this.precioDiurno = precioDiurno;
         this.precioNocturno = precioNocturno;
         this.precioHappyHour = precioHappyHour;
         this.imagenPath = imagenPath;
+        parseEspecificaciones(especificacionesStr);
     }
 
-    public String getCodigo() {
-        return codigo;
+    public Articulo(String codigo, String descripcion, double precioDiurno, double precioNocturno, double precioHappyHour, String imagenPath, List<Especificacion> especificaciones) {
+        this.codigo = codigo;
+        this.descripcion = descripcion;
+        this.precioDiurno = precioDiurno;
+        this.precioNocturno = precioNocturno;
+        this.precioHappyHour = precioHappyHour;
+        this.imagenPath = imagenPath;
+        this.especificaciones = especificaciones != null ? especificaciones : new ArrayList<>();
     }
 
-    public String getDescripcion() {
-        return descripcion;
+    private void parseEspecificaciones(String especificacionesStr) {
+        this.especificaciones = new ArrayList<>();
+        if (especificacionesStr == null || especificacionesStr.trim().isEmpty()) {
+            return;
+        }
+
+        String[] pares = especificacionesStr.split(";");
+        for (String par : pares) {
+            String[] partes = par.split(":");
+            if (partes.length == 3) {
+                try {
+                    String nombre = partes[0].trim();
+                    TipoEspecificacion tipo = TipoEspecificacion.valueOf(partes[1].trim().toUpperCase());
+                    double precio = Double.parseDouble(partes[2].trim());
+                    this.especificaciones.add(new Especificacion(nombre, tipo, precio));
+                } catch (IllegalArgumentException e) {
+                    System.err.println("Error al parsear especificación (tipo o número inválido): " + par);
+                }
+            }
+        }
     }
 
-    public double getPrecioDiurno() {
-        return precioDiurno;
+    public List<Especificacion> getEspecificaciones() {
+        return Collections.unmodifiableList(especificaciones);
     }
 
-    public double getPrecioNocturno() {
-        return precioNocturno;
-    }
+    public String getCodigo() { return codigo; }
+    public String getDescripcion() { return descripcion; }
+    public double getPrecioDiurno() { return precioDiurno; }
+    public double getPrecioNocturno() { return precioNocturno; }
+    public double getPrecioHappyHour() { return precioHappyHour; }
+    public String getImagenPath() { return imagenPath; }
 
-    public double getPrecioHappyHour() {
-        return precioHappyHour;
-    }
-
-    public String getImagenPath() {
-        return imagenPath;
-    }
-
-    /**
-     * Calcula el precio del artículo solo según la hora del día (diurno/nocturno).
-     * Esta función ya NO considera Happy Hour; esa lógica se manejará antes de crear el Consumo.
-     * @param hora La hora actual (0-23).
-     * @return El precio correspondiente (diurno o nocturno).
-     */
     public double getPrecioPorHora(int hora) {
-        if (hora >= 18 && hora < 21) { // Horario Diurno (ejemplo)
-            return precioDiurno;
-        } else { // Horario Nocturno (ejemplo)
+        if (hora >= 20 || hora < 6) {
             return precioNocturno;
+        } else {
+            return precioDiurno;
         }
     }
 }

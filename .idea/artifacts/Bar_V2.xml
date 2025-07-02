@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Bar_V2">
+    <output-path>$PROJECT_DIR$/out/artifacts/Bar_V2</output-path>
+    <root id="archive" name="Bar_V2.jar">
+      <element id="module-output" name="Code_Bar" />
+    </root>
+  </artifact>
+</component>

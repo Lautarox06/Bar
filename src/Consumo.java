@@ -1,42 +1,69 @@
-public class Consumo {
-    Articulo articulo;
-    int cantidad;
-    int horaConsumo;
-    double precioUnitarioConsumo; // NUEVA PROPIEDAD: El precio por unidad ya calculado al momento del consumo
+import java.util.Map;
+import java.text.DecimalFormat;
 
-    /**
-     * Constructor de Consumo.
-     * @param articulo El artículo consumido.
-     * @param cantidad La cantidad del artículo.
-     * @param horaConsumo La hora en que se realizó el consumo.
-     * @param precioUnitarioConsumo El precio por unidad del artículo en el momento del consumo (ya considerando Happy Hour/diurno/nocturno).
-     */
-    public Consumo(Articulo articulo, int cantidad, int horaConsumo, double precioUnitarioConsumo) { // CONSTRUCTOR ACTUALIZADO
+public class Consumo {
+    Articulo articulo; // Ahora almacena el objeto Articulo directamente
+    int cantidad;
+    double precioUnitarioBase; // El precio del artículo sin extras
+    Map<Especificacion, Integer> opcionesSeleccionadas;
+
+    // MODIFICADO: El primer parámetro ahora es un objeto Articulo
+    public Consumo(Articulo articulo, int cantidad, double precioUnitarioBase, Map<Especificacion, Integer> opcionesSeleccionadas) {
         this.articulo = articulo;
         this.cantidad = cantidad;
-        this.horaConsumo = horaConsumo;
-        this.precioUnitarioConsumo = precioUnitarioConsumo; // Asignar el precio ya calculado
+        this.precioUnitarioBase = precioUnitarioBase;
+        this.opcionesSeleccionadas = opcionesSeleccionadas;
     }
 
-    // Métodos getter existentes
-    public Articulo getArticulo() {
-        return articulo;
+    public double getCostoDeOpciones() {
+        double costoOpciones = 0;
+        if (opcionesSeleccionadas != null) {
+            for (Map.Entry<Especificacion, Integer> entry : opcionesSeleccionadas.entrySet()) {
+                costoOpciones += entry.getKey().getPrecioPorUnidad() * entry.getValue();
+            }
+        }
+        return costoOpciones;
     }
 
-    public int getCantidad() {
-        return cantidad;
+    public double getPrecioUnitarioFinal() {
+        return precioUnitarioBase + getCostoDeOpciones();
     }
 
+    public double getSubtotal() {
+        return getPrecioUnitarioFinal() * cantidad;
+    }
+
+    public String getDetalle() {
+        if (opcionesSeleccionadas == null || opcionesSeleccionadas.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder("(");
+        for (Map.Entry<Especificacion, Integer> entry : opcionesSeleccionadas.entrySet()) {
+            Especificacion spec = entry.getKey();
+            int value = entry.getValue();
+            if (value > 0) {
+                sb.append(spec.getNombre());
+                if (spec.getTipo() == TipoEspecificacion.CANTIDAD) {
+                    sb.append(": ").append(value);
+                }
+                sb.append(", ");
+            }
+        }
+        if (sb.length() > 2) {
+            sb.setLength(sb.length() - 2); // Remover la última coma y espacio
+        }
+        sb.append(")");
+        return sb.toString();
+    }
+
+    // Getters
+    public Articulo getArticulo() { return articulo; }
+    public int getCantidad() { return cantidad; }
+    public Map<Especificacion, Integer> getOpcionesSeleccionadas() { return opcionesSeleccionadas; }
     public int getHoraConsumo() {
-        return horaConsumo;
-    }
-
-    /**
-     * Calcula el subtotal para este consumo.
-     * Es ahora muy simple, solo multiplica la cantidad por el precio unitario guardado.
-     * @return El subtotal del consumo.
-     */
-    public double getSubtotal() { // ¡SIN PARÁMETROS!
-        return cantidad * precioUnitarioConsumo;
+        // En un sistema real, la hora se debería pasar al crear el consumo
+        // o generarse en el momento de agregarlo a la mesa.
+        // Por ahora, asumimos que se gestiona la hora en BarManager.
+        return 0; // O el valor que corresponda
     }
 }
