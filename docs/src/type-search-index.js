@@ -1,0 +1,1 @@
+typeSearchIndex = [{"l":"All Classes","u":"allclasses-index.html"},{"p":"bar","l":"Articulo"},{"p":"bar","l":"BarGUI"},{"p":"bar","l":"BarManager"},{"p":"bar","l":"Consumo"},{"p":"bar","l":"Especificacion"},{"p":"bar","l":"Mesa"},{"p":"bar","l":"ProductoPanel"},{"p":"bar","l":"TipoEspecificacion"}];updateSearchResults();
